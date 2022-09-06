@@ -9,9 +9,13 @@ use itertools::Itertools;
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[clap(version, about)]
+#[clap()]
 struct Args {
     input_path: PathBuf,
+    #[clap(short = '1', long, action)]
+    part1: bool,
+    #[clap(short = '2', long, action)]
+    part2: bool,
 }
 
 /// From the file at path, read a list of integers (one per line), and return them
@@ -34,9 +38,9 @@ fn load_input(path: &Path) -> Result<Vec<u32>, String> {
 /// Value to which two elements of the input must sum.
 const TARGET_TOTAL: u32 = 2020;
 
-/// From the input list of values, find two that sum to TARGET_TOTAL, and return their product.
-fn find_match(input: &Vec<u32>) -> Result<u32, String> {
-    match input.into_iter().combinations(2).find(|x| x.iter().copied().sum::<u32>() == TARGET_TOTAL) {
+/// From the input list of values, find a set of size subset_size that sums to TARGET_TOTAL, and return their product.
+fn find_match(input: &Vec<u32>, subset_size: usize) -> Result<u32, String> {
+    match input.into_iter().combinations(subset_size).find(|x| x.iter().copied().sum::<u32>() == TARGET_TOTAL) {
         Some(x) => Ok(x.into_iter().product()),
         None => Err(format!("No pair summing to {} found", TARGET_TOTAL))
     }
@@ -44,6 +48,16 @@ fn find_match(input: &Vec<u32>) -> Result<u32, String> {
 
 fn main() -> ExitCode {
     let args = Args::parse();
+
+    // Number of elements from the input set that will be combined into the output set.
+    let input_subset_size = match (args.part1, args.part2) {
+        (true, false) => 2,
+        (false, true) => 3,
+        _ => {
+            eprintln!("Error: must specify exactly one of --part1 or --part2.");
+            return ExitCode::FAILURE;
+        },
+    };
     let input = match load_input(&args.input_path){
         Ok(input) => input,
         Err(msg) => {
@@ -51,7 +65,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         },
     };
-    match find_match(&input) {
+    match find_match(&input, input_subset_size) {
         Ok(x) => {
             println!("{}", x);
             return ExitCode::SUCCESS
@@ -66,9 +80,11 @@ fn main() -> ExitCode {
 #[datatest::files("data", {
     input in r"^data/sample([0-9]+)$",
     answer = r"data/sample${1}.answer",
+    input_subset_size = r"data/sample${1}.subset_size",
 })]
-fn tests(input: &Path, answer: &str) {
+fn tests(input: &Path, answer: &str, input_subset_size: &str) {
     let input = load_input(input).unwrap();
     let answer = answer.parse::<u32>().unwrap();
-    assert_eq!(find_match(&input).unwrap(), answer);
+    let input_subset_size = input_subset_size.parse::<usize>().unwrap();
+    assert_eq!(find_match(&input, input_subset_size).unwrap(), answer);
 }
