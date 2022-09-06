@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "day01part1"
-path = "./day01part1.rs"
+name = "day01"
+path = "./day01.rs"
 
 [dependencies]
 clap = { version = "3.2", features = ["derive"] }
