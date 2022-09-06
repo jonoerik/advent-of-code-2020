@@ -9,4 +9,5 @@ path = "./day01part1.rs"
 
 [dependencies]
 clap = { version = "3.2", features = ["derive"] }
+datatest = "0.7"
 itertools = "0.10"
