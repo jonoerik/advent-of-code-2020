@@ -20,15 +20,15 @@ struct Args {
 
 /// A single element of the puzzle input.
 struct InputEntry {
-    required_min: usize,
-    required_max: usize,
+    requirement_a: usize,
+    requirement_b: usize,
     required_char: char,
     password: String,
 }
 
 /// From the provided filesystem path, load the puzzle input.
 fn load_input(path: &Path) -> Result<Vec<InputEntry>, String> {
-    let input_re = Regex::new(r"^(?P<min>[0-9]+)-(?P<max>[0-9]+) (?P<char>.): (?P<password>.+)$").unwrap();
+    let input_re = Regex::new(r"^(?P<a>[0-9]+)-(?P<b>[0-9]+) (?P<char>.): (?P<password>.+)$").unwrap();
     let input_file = match fs::read_to_string(path) {
         Ok(f) => f,
         Err(err) => {
@@ -38,8 +38,8 @@ fn load_input(path: &Path) -> Result<Vec<InputEntry>, String> {
     return input_file.lines().map(|line| {
         match input_re.captures(line) {
             Some(captures) => Ok(InputEntry {
-                required_min: captures.name("min").unwrap().as_str().parse().unwrap(),
-                required_max: captures.name("max").unwrap().as_str().parse().unwrap(),
+                requirement_a: captures.name("a").unwrap().as_str().parse().unwrap(),
+                requirement_b: captures.name("b").unwrap().as_str().parse().unwrap(),
                 required_char: captures.name("char").unwrap().as_str().parse().unwrap(),
                 password: captures.name("password").unwrap().as_str().to_string(),
             }),
@@ -55,18 +55,32 @@ fn check_entries_p1(entries: &Vec<InputEntry>) -> usize {
 
 /// Return true if the single provided entry is valid according to its own part1 password policy, false otherwise.
 fn check_entry_p1(entry: &InputEntry) -> bool {
-    (entry.required_min..=entry.required_max).contains(&entry.password.chars().filter(|c| *c == entry.required_char).count())
+    (entry.requirement_a..=entry.requirement_b).contains(&entry.password.chars().filter(|c| *c == entry.required_char).count())
 
 }
 
 /// Return a count of the number of provided entries that match their respective part2 password policies.
-fn check_entries_p2(entries: &Vec<InputEntry>) -> usize {
-    entries.into_iter().map(|entry| if check_entry_p2(entry) {1usize} else {0usize}).sum()
+fn check_entries_p2(entries: &Vec<InputEntry>) -> Result<usize, String> {
+    entries.into_iter().fold(Ok(0usize),
+        |a, b| Ok(a? + if check_entry_p2(b)? {1usize} else {0usize})
+    )
 }
 
 /// Return true if the single provided entry is valid according to its own part2 password policy, false otherwise.
-fn check_entry_p2(entry: &InputEntry) -> bool {
-    unimplemented!();
+fn check_entry_p2(entry: &InputEntry) -> Result<bool, String> {
+    let char_a = match entry.password.chars().nth(entry.requirement_a - 1) {
+        Some(c) => c,
+        None => {
+            return Err(format!("Index {} is outside password string \"{}\"", entry.requirement_a, entry.password));
+        },
+    };
+    let char_b = match entry.password.chars().nth(entry.requirement_b - 1) {
+        Some(c) => c,
+        None => {
+            return Err(format!("Index {} is outside password string \"{}\"", entry.requirement_b, entry.password));
+        },
+    };
+    return Ok((char_a == entry.required_char) != (char_b == entry.required_char));
 }
 
 fn main() -> ExitCode {
@@ -79,16 +93,23 @@ fn main() -> ExitCode {
         }
     };
 
-    let check_fn = match (args.part1, args.part2) {
-        (true, false) => check_entries_p1,
-        (false, true) => check_entries_p2,
-        _ => {
+    let result =
+        if args.part1 && !args.part2 {
+            check_entries_p1(&input)
+        } else if !args.part1 && args.part2 {
+            match check_entries_p2(&input) {
+                Ok(result) => result,
+                Err(msg) => {
+                    eprintln!("Error: {}.", msg);
+                    return ExitCode::FAILURE;
+                },
+            }
+        } else {
             eprintln!("Error: must specify exactly one of --part1 or --part2.");
             return ExitCode::FAILURE;
-        },
-    };
+        };
 
-    println!("{}", check_fn(&input));
+    println!("{}", result);
     return ExitCode::SUCCESS;
 }
 
@@ -109,5 +130,5 @@ fn tests_p1(input: &Path, answer: &str) {
 fn tests_p2(input: &Path, answer: &str) {
     let input = load_input(input).unwrap();
     let answer = answer.parse::<usize>().unwrap();
-    assert_eq!(check_entries_p2(&input), answer);
+    assert_eq!(check_entries_p2(&input).unwrap(), answer);
 }
