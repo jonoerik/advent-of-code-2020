@@ -1,5 +1,5 @@
 DC=gdc
-DCFLAGS=
+DCFLAGS=-Wall -Werror
 DCTESTFLAG=--unittest
 
 all: day03

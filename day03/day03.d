@@ -66,7 +66,6 @@ bool[][] loadInput(string path) {
                     break;
                 default:
                     throw new Exception("Unexpected character '" ~ c ~ "' in input file.");
-                    break;
                 }
             }
         }
