@@ -74,10 +74,21 @@ bool[][] loadInput(string path) {
     return result;
 }
 
+struct Velocity {
+    size_t right;
+    size_t down;
+}
 // Distance travelled in each direction per step of the puzzle.
-enum VELOCITY = Tuple!(uint, "right", uint, "down")(3, 1);
+static immutable Velocity P1_VELOCITY = {right:3, down:1};
+static immutable Velocity[] P2_VELOCITIES = [
+    {right:1, down:1},
+    {right:3, down:1},
+    {right:5, down:1},
+    {right:7, down:1},
+    {right:1, down:2},
+];
 
-size_t count_trees(bool[][] input) {
+size_t count_trees(bool[][] input, Velocity v) {
     size_t pos_row = 0;
     size_t pos_col = 0;
     size_t result = 0;
@@ -86,8 +97,8 @@ size_t count_trees(bool[][] input) {
         if (input[pos_row][pos_col]) {
             ++result;
         }
-        pos_row += VELOCITY.down;
-        pos_col += VELOCITY.right;
+        pos_row += v.down;
+        pos_col += v.right;
         pos_col %= input[0].length;
     }
 
@@ -101,7 +112,18 @@ void main(string[] args) {
     if (!UNIT_TESTS_RUN) {
         auto opts = getOptions(args);
         auto input = loadInput(opts.input_path);
-        writeln(count_trees(input));
+        final switch (opts.part) {
+        case Part.Part1:
+            writeln(count_trees(input, P1_VELOCITY));
+            break;
+        case Part.Part2:
+            size_t result = 1;
+            foreach (Velocity v; P2_VELOCITIES) {
+                result *= count_trees(input, v);
+            }
+            writeln(result);
+            break;
+        }
     }
 }
 
@@ -109,12 +131,24 @@ unittest {
     UNIT_TESTS_RUN = true;
     foreach (string test_name; dirEntries("data", "sample?", SpanMode.shallow)) {
         auto input = loadInput(test_name);
-        size_t answer;
+        size_t p1answer;
         {
-            auto answer_f = File(test_name ~ ".answer", "r");
-            answer_f.readf!"%d"(answer);
+            auto answer_f = File(test_name ~ ".p1answer", "r");
+            answer_f.readf!"%d"(p1answer);
         }
-        writeln("Unit testing ", test_name);
-        assert(count_trees(input) == answer);
+        writeln("Unit testing ", test_name, " part1.");
+        assert(count_trees(input, P1_VELOCITY) == p1answer);
+
+        size_t p2answer;
+        {
+            auto answer_f = File(test_name ~ ".p2answer", "r");
+            answer_f.readf!"%d"(p2answer);
+        }
+        writeln("Unit testing ", test_name, " part2.");
+        size_t p2result = 1;
+        foreach (Velocity v; P2_VELOCITIES) {
+            p2result *= count_trees(input, v);
+        }
+        assert(p2result == p2answer);
     }
 }
