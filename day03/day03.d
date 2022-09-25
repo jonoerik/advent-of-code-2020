@@ -53,7 +53,23 @@ bool[][] loadInput(string path) {
     bool[][] result;
     while (!f.eof()) {
         string line = strip(f.readln());
-        //TODO
+        if (line.length > 0) {
+            size_t i  = result.length;
+            result ~= [[]];
+            foreach (char c; line) {
+                switch (c) {
+                case '#':
+                    result[i] ~= true;
+                    break;
+                case '.':
+                    result[i] ~= false;
+                    break;
+                default:
+                    throw new Exception("Unexpected character '" ~ c ~ "' in input file.");
+                    break;
+                }
+            }
+        }
     }
     return result;
 }
@@ -61,8 +77,44 @@ bool[][] loadInput(string path) {
 // Distance travelled in each direction per step of the puzzle.
 enum VELOCITY = Tuple!(uint, "right", uint, "down")(3, 1);
 
+size_t count_trees(bool[][] input) {
+    size_t pos_row = 0;
+    size_t pos_col = 0;
+    size_t result = 0;
+
+    while (pos_row < input.length) {
+        if (input[pos_row][pos_col]) {
+            ++result;
+        }
+        pos_row += VELOCITY.down;
+        pos_col += VELOCITY.right;
+        pos_col %= input[0].length;
+    }
+
+    return result;
+}
+
+// Have unit tests been run in this session (in which case skip main()).
+bool UNIT_TESTS_RUN = false;
+
 void main(string[] args) {
-    auto opts = getOptions(args);
-    auto input = loadInput(opts.input_path);
-    //TODO
+    if (!UNIT_TESTS_RUN) {
+        auto opts = getOptions(args);
+        auto input = loadInput(opts.input_path);
+        writeln(count_trees(input));
+    }
+}
+
+unittest {
+    UNIT_TESTS_RUN = true;
+    foreach (string test_name; dirEntries("data", "sample?", SpanMode.shallow)) {
+        auto input = loadInput(test_name);
+        size_t answer;
+        {
+            auto answer_f = File(test_name ~ ".answer", "r");
+            answer_f.readf!"%d"(answer);
+        }
+        writeln("Unit testing ", test_name);
+        assert(count_trees(input) == answer);
+    }
 }
