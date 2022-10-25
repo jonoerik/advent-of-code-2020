@@ -1,6 +1,3 @@
-#![feature(custom_test_frameworks)]
-#![test_runner(datatest::runner)]
-
 use std::fs;
 use std::process::ExitCode;
 use std::path::{Path, PathBuf};
@@ -113,22 +110,22 @@ fn main() -> ExitCode {
     return ExitCode::SUCCESS;
 }
 
-#[datatest::files("data", {
-    input in r"^data/sample([0-9]+)$",
-    answer = r"data/sample${1}.answer1",
-})]
-fn tests_p1(input: &Path, answer: &str) {
-    let input = load_input(input).unwrap();
-    let answer = answer.parse::<usize>().unwrap();
-    assert_eq!(check_entries_p1(&input), answer);
-}
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::Path;
 
-#[datatest::files("data", {
-    input in r"^data/sample([0-9]+)$",
-    answer = r"data/sample${1}.answer2",
-})]
-fn tests_p2(input: &Path, answer: &str) {
-    let input = load_input(input).unwrap();
-    let answer = answer.parse::<usize>().unwrap();
-    assert_eq!(check_entries_p2(&input).unwrap(), answer);
+    #[test]
+    fn sample1_p1() {
+        let input = super::load_input(&Path::new("data").join("sample1")).unwrap();
+        let answer = fs::read_to_string(&Path::new("data").join("sample1.answer1")).unwrap().parse::<usize>().unwrap();
+        assert_eq!(super::check_entries_p1(&input), answer);
+    }
+
+    #[test]
+    fn sample1_p2() {
+        let input = super::load_input(&Path::new("data").join("sample1")).unwrap();
+        let answer = fs::read_to_string(&Path::new("data").join("sample1.answer2")).unwrap().parse::<usize>().unwrap();
+        assert_eq!(super::check_entries_p2(&input).unwrap(), answer);
+    }
 }
