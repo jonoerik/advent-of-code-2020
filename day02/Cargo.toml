@@ -9,5 +9,4 @@ path = "./day02.rs"
 
 [dependencies]
 clap = { version = "3.2", features = ["derive"] }
-datatest = "0.7"
 regex = "1"
