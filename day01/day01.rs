@@ -1,6 +1,3 @@
-#![feature(custom_test_frameworks)]
-#![test_runner(datatest::runner)]
-
 use std::fs;
 use std::process::ExitCode;
 use std::path::{Path, PathBuf};
@@ -77,14 +74,28 @@ fn main() -> ExitCode {
     };
 }
 
-#[datatest::files("data", {
-    input in r"^data/sample([0-9]+)$",
-    answer = r"data/sample${1}.answer",
-    input_subset_size = r"data/sample${1}.subset_size",
-})]
-fn tests(input: &Path, answer: &str, input_subset_size: &str) {
-    let input = load_input(input).unwrap();
-    let answer = answer.parse::<u32>().unwrap();
-    let input_subset_size = input_subset_size.parse::<usize>().unwrap();
-    assert_eq!(find_match(&input, input_subset_size).unwrap(), answer);
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::Path;
+
+    // https://stackoverflow.com/questions/34662713/how-can-i-create-parameterized-tests-in-rust/34666891#34666891
+    macro_rules! test_cases {
+        ($($name:ident,)*) => {
+            $(
+                #[test]
+                fn $name() {
+                    let input = super::load_input(&Path::new("data").join(stringify!($name))).unwrap();
+                    let answer = fs::read_to_string(&Path::new("data").join(concat!(stringify!($name), ".answer"))).unwrap().parse::<u32>().unwrap();
+                    let input_subset_size = fs::read_to_string(&Path::new("data").join(concat!(stringify!($name), ".subset_size"))).unwrap().parse::<usize>().unwrap();
+                    assert_eq!(super::find_match(&input, input_subset_size).unwrap(), answer);
+                }
+            )*
+        }
+    }
+
+    test_cases! {
+        sample1,
+        sample2,
+    }
 }
