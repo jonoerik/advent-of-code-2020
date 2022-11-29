@@ -54,7 +54,11 @@ program day05
         call exit(1)
     end if
 
-    write (result_str, "(I32)") part1(trim(input_path))
+    if (flag_part1) then
+        write (result_str, "(I32)") part1(trim(input_path))
+    else if (flag_part2) then
+        write (result_str, "(I32)") part2(trim(input_path))
+    end if
     write (*, "(A)") trim(adjustl(result_str))
 
     contains
@@ -92,6 +96,74 @@ program day05
                 end select
             end do
             close(handle)
+        end function
+
+        function part2(input_path) result(seat)
+            use, intrinsic :: iso_fortran_env, only : iostat_end
+            implicit none
+            character(len=*), intent(in) :: input_path
+            integer :: seat
+
+            integer :: handle
+            character(len=32) :: line
+            integer :: error
+
+            integer, dimension(1024) :: filled_seats
+            integer :: n_filled_seats = 0
+            integer :: i = 0
+            logical :: seat_found
+
+            open(newunit=handle, file=input_path, status="old", action="read")
+            do
+                read (handle, "(A)", iostat=error) line
+                select case (error)
+                case(0)
+                    if (len(trim(line)) /= 10) then
+                        write (stderr, "(A)") "Input line not of expected length."
+                        call exit(1)
+                    end if
+                    if (n_filled_seats >= 1024) then
+                        write (stderr, "(A)") "Too many lines in input file."
+                        call exit(1)
+                    end if
+                    filled_seats(n_filled_seats + 1) = seat_value(line)
+                    n_filled_seats = n_filled_seats + 1
+                case(iostat_end)
+                    exit
+                case default
+                    write (stderr, "(A)") "Error reading from input file."
+                    call exit(1)
+                end select
+            end do
+            close(handle)
+
+            seat = 0
+            do
+                seat_found = .false.
+                do i=1,n_filled_seats
+                    if (filled_seats(i) == seat) then
+                        seat_found = .true.
+                    end if
+                end do
+                if (seat_found) then
+                    exit
+                end if
+                seat = seat + 1
+            end do
+
+            seat = seat + 1
+            do
+                seat_found = .false.
+                do i=1,n_filled_seats
+                    if (filled_seats(i) == seat) then
+                        seat_found = .true.
+                    end if
+                end do
+                if (.not. seat_found) then
+                    exit
+                end if
+                seat = seat + 1
+            end do
         end function
 
         function seat_value(s) result(val)
