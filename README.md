@@ -9,7 +9,7 @@ https://adventofcode.com/2020/
 | 2 | ✔️ | Rust |
 | 3 | ✔️ | D |
 | 4 | ✔️ | C++ |
-| 5 | ❌ | Fortran |
+| 5 | ✔️ | Fortran |
 | 6 | ❌ | |
 | 7 | ❌ | |
 | 8 | ❌ | |
