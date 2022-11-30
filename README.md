@@ -10,7 +10,7 @@ https://adventofcode.com/2020/
 | 3 | ✔️ | D |
 | 4 | ✔️ | C++ |
 | 5 | ✔️ | Fortran |
-| 6 | ❌ | |
+| 6 | ❌ | Python |
 | 7 | ❌ | |
 | 8 | ❌ | |
 | 9 | ❌ | |
