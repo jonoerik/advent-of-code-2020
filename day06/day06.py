@@ -3,27 +3,35 @@
 import argparse
 import sys
 from pathlib import Path
+import functools
+import operator
+import string
 
-def load(input_path: Path) -> list[set[str]]:
-    current_set = set()
-    all_sets = []
+def load(input_path: Path) -> list[list[set[str]]]:
+    current_group = []
+    all_groups = []
     with open(input_path) as f:
         while True:
             line = f.readline()
             if not line or not line.strip():
                 # EOF or blank line
-                all_sets.append(current_set)
-                current_set = set()
+                all_groups.append(current_group)
+                current_group = []
                 if not line:
                     # EOF
                     break
             line = line.strip()
-            current_set |= set([c for c in line])
-    return all_sets
+            if line:
+                current_group.append(set(line))
+    return all_groups
 
 
-def part1(data: list[set[str]]) -> int:
-    return sum([len(s) for s in data])
+def part1(data: list[list[set[str]]]) -> int:
+    return sum([len(functools.reduce(operator.or_, group, set())) for group in data])
+
+
+def part2(data: list[list[set[str]]]) -> int:
+    return sum([len(functools.reduce(operator.and_, group, set(string.ascii_lowercase))) for group in data])
 
 
 if __name__ == "__main__":
@@ -40,4 +48,4 @@ if __name__ == "__main__":
     if args.part1:
         print(part1(data))
     else: #part2
-        pass
+        print(part2(data))
