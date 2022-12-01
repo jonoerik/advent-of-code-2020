@@ -28,5 +28,4 @@ def test_part1(input_path: Path, answer1: int) -> None:
 
 
 def test_part2(input_path: Path, answer2: int) -> None:
-    print(day06.load(input_path));
     assert day06.part2(day06.load(input_path)) == answer2
