@@ -11,7 +11,7 @@ https://adventofcode.com/2020/
 | 4 | ✔️ | C++ |
 | 5 | ✔️ | Fortran |
 | 6 | ✔️ | Python |
-| 7 | ❌ | |
+| 7 | ❌ | Python |
 | 8 | ❌ | |
 | 9 | ❌ | |
 | 10 | ❌ | |
