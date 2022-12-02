@@ -30,13 +30,14 @@ def load(input_path: Path) -> BagDict:
     return bags
 
 
-def count_contained(bags: BagDict, outer_colour: str, count_colour: str) -> int:
+def count_contained(bags: BagDict, outer_colour: str, count_colour: str = None) -> int:
     """
     For a bag-contents dictionary of `bags`, and an outermost bag `outer_colour`,
     how many bags of `count_colour` are contained within (potentially including
     the outermost one).
+    If count_colour is None, all bags will be counted.
     """
-    count = 1 if outer_colour == count_colour else 0
+    count = 1 if (count_colour is None) or (outer_colour == count_colour) else 0
     for next_bag, next_bag_count in bags[outer_colour]:
         count += next_bag_count * count_contained(bags, next_bag, count_colour)
     return count
@@ -47,7 +48,7 @@ def part1(bags: BagDict) -> int:
 
 
 def part2(bags: BagDict) -> int:
-    pass #TODO
+    return count_contained(bags, "shiny gold") - 1
 
 
 if __name__ == "__main__":
