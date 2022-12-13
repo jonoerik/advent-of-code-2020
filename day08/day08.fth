@@ -20,6 +20,7 @@
         1
     else
         2dup 2dup s" --part2" compare 0 = -rot s" -2" compare 0 = or if
+            2drop
             2
         else
             s" --test" compare 0 = if
@@ -101,6 +102,7 @@ instruction% instr-buf-size * %allot constant instr-buf
     then
     to input-fd
 
+    0 to instr-count
     begin
         linebuf linebufsize input-fd read-line throw
     while
@@ -116,9 +118,16 @@ instruction% instr-buf-size * %allot constant instr-buf
     input-fd close-file throw
 ;
 
+: clear-instruction-run-count ( -- )
+    \ Set instruction-run-count in all instr-buf entries to 0
+    instr-count 0 ?do
+        0 instr-buf i instruction% %size * + instruction-run-count !
+    loop
+;
+
 : print-instructions ( -- )
     \ Print list of instructions, in the same format as the input file
-    instr-count 0 ?DO
+    instr-count 0 ?do
         instr-buf i instruction% %size * + dup
         instruction-opcode @
         case
@@ -131,12 +140,15 @@ instruction% instr-buf-size * %allot constant instr-buf
     LOOP
 ;
 
-: run-instructions ( -- n )
+: run-instructions ( -- n flag )
     \ Run instructions until a repeated instruction is found,
-    \ the index of which is returned as n
+    \ or the end of the program is reached, and return the accumulator in n.
+    \ flag will be true if the program completed execution without reaching
+    \ a repeated instruction, false otherwise.
     0 0
     begin ( accumulator instruction-index )
         dup instr-buf swap instruction% %size * + dup instruction-run-count @ 0=
+        2 pick instr-count < and
     while ( accumulator instruction-index next-instruction )
         dup instruction-run-count dup @ 1+ swap !
         dup instruction-operand @ swap instruction-opcode @
@@ -146,7 +158,32 @@ instruction% instr-buf-size * %allot constant instr-buf
             op-acc of rot + swap 1+ endof
             op-jmp of + endof
         endcase
-    repeat drop drop
+    repeat drop instr-count >=
+;
+
+: flip-opcode ( n -- )
+    \ If the instruction at index n is a nop, change it to a jmp,
+    \ and if it's a jmp, change it to a nop
+    instruction% %size * instr-buf + instruction-opcode
+    dup @ case
+        op-nop of op-jmp swap ! endof
+        op-acc of drop endof
+        op-jmp of op-nop swap ! endof
+    endcase
+;
+
+: run-part2 ( -- n )
+    \ Run part2 of the puzzle, and return the answer.
+    instr-count 0 ?do
+        i flip-opcode
+        clear-instruction-run-count
+        run-instructions
+        true = if
+            leave
+        then
+        drop
+        i flip-opcode
+    loop
 ;
 
 : load-test-answer ( c-addr u -- n )
@@ -176,15 +213,41 @@ instruction% instr-buf-size * %allot constant instr-buf
     \ If n is 3, run tests and quit
     3 = if
         s" data/sample1" load-input
-        run-instructions
+        run-instructions drop
         s" data/sample1.answer1" load-test-answer
         = if
             ." sample1 part1 :: PASSED" cr
-            0 (bye)
+            true
         else
             ." sample1 part1 :: FAILED" cr
+            false
+        then
+
+        s" data/sample1" load-input
+        run-part2
+        s" data/sample1.answer2" load-test-answer
+        = if
+            ." sample1 part2 :: PASSED" cr
+            true
+        else
+            ." sample1 part2 :: FAILED" cr
+            false
+        then
+
+        and if
+            0 (bye)
+        else
             1 (bye)
         then
+    then
+;
+
+: run-main ( n1 -- n2 )
+    \ Run either part 1 or part 2 as indicated by n1, and return the answer as n2.
+    1 = if
+        run-instructions drop
+    else
+        run-part2
     then
 ;
 
@@ -192,6 +255,6 @@ test-part-arg
 dup maybe-run-tests
 test-input-path
 load-input
-run-instructions
+run-main
 . cr
 0 (bye)
