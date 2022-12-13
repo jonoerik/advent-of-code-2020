@@ -12,7 +12,7 @@ https://adventofcode.com/2020/
 | 5 | ✔️ | Fortran |
 | 6 | ✔️ | Python |
 | 7 | ✔️ | Python |
-| 8 | ❌ | Forth |
+| 8 | ✔️ | Forth |
 | 9 | ❌ | |
 | 10 | ❌ | |
 | 11 | ❌ | |
