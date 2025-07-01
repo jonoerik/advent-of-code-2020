@@ -1,0 +1,16 @@
+{
+  "name": "day09",
+  "main": "day09.ts",
+  "type": "module",
+  "dependencies": {
+    "@types/yargs": "^17.0.33",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "yargs": "^18.0.0"
+  },
+  "scripts": {
+    "check": "npx tsc --noEmit",
+    "run": "npx tsx day09.ts"
+  }
+}

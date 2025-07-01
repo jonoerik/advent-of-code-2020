@@ -13,7 +13,7 @@ https://adventofcode.com/2020/
 | 6 | ✔️ | Python |
 | 7 | ✔️ | Python |
 | 8 | ✔️ | Forth |
-| 9 | ❌ | |
+| 9 | ❌ | TypeScript (Node) |
 | 10 | ❌ | |
 | 11 | ❌ | |
 | 12 | ❌ | |

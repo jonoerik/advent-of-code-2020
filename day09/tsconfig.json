@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "alwaysStrict": true,
+    "module": "es2022",
+    "target": "es2024",
+    "lib": ["es2024", "esnext.array"],
+    "preserveConstEnums": true,
+    "moduleResolution": "node",
+    "strict": true,
+    "sourceMap": true,
+    "types": ["node"]
+  }
+}
