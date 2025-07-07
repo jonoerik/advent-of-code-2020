@@ -43,9 +43,46 @@ async function part1(input: AsyncIterable<number>, preamble_length: number = 25)
 }
 
 
-async function part2(input: AsyncIterable<number>): Promise<number> {
-    //TODO
-    return 0;
+async function part2(input: AsyncIterable<number>, preamble_length: number = 25): Promise<number | undefined> {
+    const previous: Array<number> = await Array.fromAsync({length: preamble_length}, await (async it => async () => (await it.next()).value)(input[Symbol.asyncIterator]()));
+    const input_data: Array<number> = Array.from(previous);
+    function is_sum_of_previous(n: number): boolean {
+        const seeking: Array<number> = [];
+        for (const a of previous) {
+            if (seeking.includes(a)) {
+                return true;
+            } else {
+                seeking.push(n - a);
+            }
+        }
+        return false;
+    }
+
+    let target: number | null = null;
+    for await (const next of input) {
+        if (is_sum_of_previous(next)) {
+            previous.shift();
+            previous.push(next);
+        } else {
+            target = next;
+            break;
+        }
+        input_data.push(next);
+    }
+
+    console.assert(target !== null);
+
+    for (let end = input_data.length; end > 0; --end) {
+        for (let start = end - 1; start >= 0; --start) {
+            const slice = input_data.slice(start, end)
+            if (slice.reduce((a, b) => a + b, 0) === target) {
+                return slice.reduce((a, b) => Math.min(a, b)) + slice.reduce((a, b) => Math.max(a, b));
+            }
+        }
+    }
+
+    // A solution to the puzzle should have been found.
+    console.assert(false);
 }
 
 
@@ -53,20 +90,30 @@ async function run_tests(): Promise<void> {
     async function get_int_from_file(path: string): Promise<number> {
         return parseInt(await fs.readFile(path, {"encoding": "utf8"}));
     }
-    async function run_test(name: string): Promise<boolean> {
-        const preamble = await get_int_from_file(path.join(".", "data", name + ".preamble_length"));
-        const answer = await get_int_from_file(path.join(".", "data", name + ".answer1"));
-        const computed = await part1(load_input(path.join(".", "data", name)), preamble);
-        if (computed != answer) {
-            console.error("Test \'" + name + "\' failed: returned " + computed + ", expected " + answer);
-            return false;
-        } else {
-            console.log("Test \'" + name + "\' passed");
-            return true;
-        }
+    let all_passed = true;
+
+    const preamble = await get_int_from_file(path.join(".", "data", "sample1.preamble_length"));
+    const answer1 = await get_int_from_file(path.join(".", "data", "sample1.answer1"));
+    const computed1 = await part1(load_input(path.join(".", "data", "sample1")), preamble);
+    if (computed1 != answer1) {
+        console.error("Test \'sample1\' part 1 failed: returned " + computed1 + ", expected " + answer1);
+        all_passed = false;
+    } else {
+        console.log("Test \'sample1\' part 1 passed");
     }
-    if (! await run_test("sample1")) { return; }
-    console.log("All tests passed")
+
+    const answer2 = await get_int_from_file(path.join(".", "data", "sample1.answer2"));
+    const computed2 = await part2(load_input(path.join(".", "data", "sample1")), preamble);
+    if (computed2 != answer2) {
+        console.error("Test \'sample1\' part 2 failed: returned " + computed2 + ", expected " + answer2);
+        all_passed = false;
+    } else {
+        console.log("Test \'sample1\' part 2 passed");
+    }
+
+    if (all_passed) {
+        console.log("All tests passed");
+    }
 }
 
 
