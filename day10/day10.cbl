@@ -32,7 +32,7 @@ WORKING-STORAGE SECTION.
         02 input-entry
             USAGE BINARY-C-LONG UNSIGNED
             OCCURS 0 TO 300 TIMES DEPENDING ON input-data-length
-            INDEXED BY input-i.
+            INDEXED BY input-i input-j.
 
     01 part1-data.
         02 part1-difference-counts
@@ -40,6 +40,12 @@ WORKING-STORAGE SECTION.
             OCCURS 3 TIMES
             VALUE 0.
         02 part1-current-difference USAGE BINARY-C-LONG UNSIGNED.
+
+    01 part2-data.
+        02 part2-paths-to-end
+            USAGE BINARY-C-LONG UNSIGNED
+            VALUE 0
+            OCCURS 0 TO 300 TIMES DEPENDING ON input-data-length.
 
     01 output-data.
         02 output-result USAGE BINARY-C-LONG UNSIGNED.
@@ -92,7 +98,7 @@ PROCEDURE DIVISION.
 load-input.
     OPEN INPUT input-file
     INITIALIZE input-data-length ALL TO VALUE
-    PERFORM FOREVER
+    PERFORM UNTIL EXIT
         READ input-file
             AT END EXIT PERFORM
         END-READ
@@ -113,7 +119,7 @@ part1.
 
     *> Initial jump from outlet voltage (0) to the first adapter.
     SET part1-difference-counts(input-entry(1)) UP BY 1
-    PERFORM VARYING input-i FROM 2 UNTIL input-i > input-data-length
+    PERFORM WITH TEST BEFORE VARYING input-i FROM 2 UNTIL input-i > input-data-length
         COMPUTE part1-current-difference = input-entry(input-i) - input-entry(input-i - 1) END-COMPUTE
         SET part1-difference-counts(part1-current-difference) UP BY 1
     END-PERFORM
@@ -125,11 +131,56 @@ part1.
     .
 
 part2.
-*> TODO
+    INITIALIZE part2-data ALL TO VALUE
+    SORT input-entry ON ASCENDING KEY input-entry
+
+    MOVE 0 TO output-result
+    *> Treat the set of adapters as a DAG.
+    *> One node for each adapter, one for the starting outlet voltage, and one for the device's
+    *> built-in adapter.
+    *> An edge connects n_1 -> n_2 if n_2 can be plugged into n_1, i.e. n_2 is at most 3V higher
+    *> than n_1.
+    *> A valid configuration of adapters is one for which there is a path through the graph from
+    *> the outlet node to the device node.
+    *> As voltages are all directly comparable, our sorted input constitutes a lexicographic
+    *> ordering of the nodes.
+    *> We build a new graph, based on the input graph, where the value of each node is the number of
+    *> valid paths from that node to the device node.
+    *> The value in this graph of node n_a is the sum of the values of all nodes n_b, where an edge
+    *> n_a -> n_b exists.
+    PERFORM WITH TEST BEFORE VARYING input-i FROM input-data-length BY -1 UNTIL input-i < 1
+        *> Account for edges to the implicit device node.
+        IF input-entry(input-i) >= input-entry(input-data-length)
+            SET part2-paths-to-end(input-i) UP BY 1
+        END-IF
+        *> Check other adapter nodes.
+        COMPUTE input-j = input-i + 1 END-COMPUTE
+        PERFORM WITH TEST BEFORE UNTIL input-j > input-data-length
+            IF input-entry(input-j) <= input-entry(input-i) + 3
+                SET part2-paths-to-end(input-i) UP BY part2-paths-to-end(input-j)
+            ELSE
+                EXIT PERFORM
+            END-IF
+            SET input-j UP BY 1
+        END-PERFORM
+        *> If an edge to this node from the implicit outlet node exists, add this node's value
+        *> to the result.
+        IF input-entry(input-i) <= 3
+            SET output-result UP BY part2-paths-to-end(input-i)
+        END-IF
+    END-PERFORM
+
+    MOVE output-result TO output-result-display
+    .
 
 tests.
     MOVE "1" TO test-current-sample
     MOVE "1" TO test-current-part
+    PERFORM tests-run-one
+    MOVE "2" TO test-current-sample
+    PERFORM tests-run-one
+    MOVE "1" TO test-current-sample
+    MOVE "2" TO test-current-part
     PERFORM tests-run-one
     MOVE "2" TO test-current-sample
     PERFORM tests-run-one
