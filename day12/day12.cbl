@@ -37,8 +37,15 @@ WORKING-STORAGE SECTION.
         *> Degrees counter-clockwise from east.
         02 part1-ship-direction USAGE BINARY-C-LONG UNSIGNED VALUE 0.
 
-*> TODO
-*>     01 part2-data.
+    01 part2-data.
+        02 part2-ship-n USAGE BINARY-C-LONG SIGNED VALUE 0.
+        02 part2-ship-e USAGE BINARY-C-LONG SIGNED VALUE 0.
+        *> Position of the waypoint relative to the ship.
+        02 part2-waypoint-n USAGE BINARY-C-LONG SIGNED VALUE 1.
+        02 part2-waypoint-e USAGE BINARY-C-LONG SIGNED VALUE 10.
+        *> Temp values for calculating ship or waypoint movement.
+        02 part2-i USAGE BINARY-C-LONG SIGNED VALUE 0.
+        02 part2-j USAGE BINARY-C-LONG SIGNED VALUE 0.
 
     01 output-data.
         02 output-result USAGE BINARY-C-LONG UNSIGNED.
@@ -137,8 +144,8 @@ part1.
                         SET part1-ship-n DOWN BY input-value
                     WHEN OTHER
                         DISPLAY "Unexpected ship direction angle: " part1-ship-direction "." END-DISPLAY
-                    CLOSE input-file
-                    STOP RUN RETURNING 2
+                        CLOSE input-file
+                        STOP RUN RETURNING 2
                 END-EVALUATE
             WHEN OTHER
                 DISPLAY "Invalid initial character '" input-file-line(1:1) "' in input." END-DISPLAY
@@ -154,15 +161,86 @@ part1.
     .
 
 part2.
-*>     INITIALIZE part2-data ALL TO VALUE
-    *> TODO
+    INITIALIZE part2-data ALL TO VALUE
+    OPEN INPUT input-file
 
+    PERFORM UNTIL EXIT
+        READ input-file
+            AT END EXIT PERFORM
+        END-READ
+        MOVE input-file-line(2:) TO input-value
+        EVALUATE input-file-line(1:1)
+            WHEN "N"
+                SET part2-waypoint-n UP BY input-value
+            WHEN "S"
+                SET part2-waypoint-n DOWN BY input-value
+            WHEN "E"
+                SET part2-waypoint-e UP BY input-value
+            WHEN "W"
+                SET part2-waypoint-e DOWN BY input-value
+            WHEN "L"
+                MOVE part2-waypoint-n TO part2-i
+                MOVE part2-waypoint-e TO part2-j
+                EVALUATE input-value
+                    WHEN 0
+                        CONTINUE
+                    WHEN 90
+                        COMPUTE part2-waypoint-n = part2-j END-COMPUTE
+                        COMPUTE part2-waypoint-e = -part2-i END-COMPUTE
+                    WHEN 180
+                        COMPUTE part2-waypoint-n = -part2-i END-COMPUTE
+                        COMPUTE part2-waypoint-e = -part2-j END-COMPUTE
+                    WHEN 270
+                        COMPUTE part2-waypoint-n = -part2-j END-COMPUTE
+                        COMPUTE part2-waypoint-e = part2-i END-COMPUTE
+                    WHEN OTHER
+                        DISPLAY "Unexpected ship direction angle: " input-value "." END-DISPLAY
+                        CLOSE input-file
+                        STOP RUN RETURNING 2
+                END-EVALUATE
+            WHEN "R"
+                MOVE part2-waypoint-n TO part2-i
+                MOVE part2-waypoint-e TO part2-j
+                EVALUATE input-value
+                    WHEN 0
+                        CONTINUE
+                    WHEN 90
+                        COMPUTE part2-waypoint-n = -part2-j END-COMPUTE
+                        COMPUTE part2-waypoint-e = part2-i END-COMPUTE
+                    WHEN 180
+                        COMPUTE part2-waypoint-n = -part2-i END-COMPUTE
+                        COMPUTE part2-waypoint-e = -part2-j END-COMPUTE
+                    WHEN 270
+                        COMPUTE part2-waypoint-n = part2-j END-COMPUTE
+                        COMPUTE part2-waypoint-e = -part2-i END-COMPUTE
+                    WHEN OTHER
+                        DISPLAY "Unexpected ship direction angle: " input-value "." END-DISPLAY
+                        CLOSE input-file
+                        STOP RUN RETURNING 2
+                END-EVALUATE
+            WHEN "F"
+                COMPUTE part2-i = part2-waypoint-n * input-value END-COMPUTE
+                COMPUTE part2-j = part2-waypoint-e * input-value END-COMPUTE
+                SET part2-ship-n UP BY part2-i
+                SET part2-ship-e UP BY part2-j
+            WHEN OTHER
+                DISPLAY "Invalid initial character '" input-file-line(1:1) "' in input." END-DISPLAY
+                CLOSE input-file
+                STOP RUN RETURNING 2
+        END-EVALUATE
+    END-PERFORM
+
+    CLOSE input-file
+
+    COMPUTE output-result = FUNCTION ABS(part2-ship-n) + FUNCTION ABS(part2-ship-e) END-COMPUTE
     MOVE output-result TO output-result-display
     .
 
 tests.
     MOVE "1" TO test-current-sample
     MOVE "1" TO test-current-part
+    PERFORM tests-run-one
+    MOVE "2" TO test-current-part
     PERFORM tests-run-one
 
     IF test-all-passed IS EQUAL TO 1
