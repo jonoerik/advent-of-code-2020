@@ -15,7 +15,7 @@ https://adventofcode.com/2020/
 | 8 | ✔️ | Forth |
 | 9 | ✔️ | TypeScript (Node) |
 | 10 | ✔️ | COBOL |
-| 11 | ❌ | |
+| 11 | ❌ | TypeScript (Node) |
 | 12 | ❌ | |
 | 13 | ❌ | |
 | 14 | ❌ | |
