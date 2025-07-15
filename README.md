@@ -16,7 +16,7 @@ https://adventofcode.com/2020/
 | 9 | ✔️ | TypeScript (Node) |
 | 10 | ✔️ | COBOL |
 | 11 | ✔️ | TypeScript (Node) |
-| 12 | ❌ | |
+| 12 | ❌ | COBOL |
 | 13 | ❌ | |
 | 14 | ❌ | |
 | 15 | ❌ | |
