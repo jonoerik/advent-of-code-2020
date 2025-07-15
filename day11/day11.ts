@@ -92,8 +92,63 @@ async function part1(input: InputType): Promise<number | undefined> {
 
 
 async function part2(input: InputType): Promise<number | undefined> {
-    //TODO
-    return 0;
+    let chairs = input.map(r => r.map(i => i));
+    function visible_full_seats(r: number, c: number): number {
+        return [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0] ,[1, 1]].map(function(d: number[]): number {
+            var nr = r + d[0];
+            var nc = c + d[1];
+            while (nr >= 0 && nr < chairs.length && nc >= 0 && nc < chairs[0].length) {
+                switch (chairs[nr][nc]) {
+                    case TileFloor:
+                        break;
+                    case TileEmpty:
+                        return 0;
+                        break;
+                    case TileFull:
+                        return 1;
+                        break;
+                }
+                nr += d[0];
+                nc += d[1];
+            }
+            return 0;
+        }).reduce((a, b) => a + b, 0);
+    }
+
+    function next_chairs(): InputType {
+        return chairs.map((row, r) => row.map(function(item, c) {
+            switch (item) {
+                case TileFloor:
+                    return TileFloor;
+                    break;
+                case TileEmpty:
+                    return (visible_full_seats(r, c) == 0) ? TileFull : TileEmpty;
+                    break;
+                case TileFull:
+                    return (visible_full_seats(r, c) >= 5) ? TileEmpty : TileFull;
+                    break;
+            }
+        }));
+    }
+    let next = next_chairs();
+
+    function chairs_changed(): boolean {
+        for (let r = 0; r < chairs.length; ++r) {
+            for (let c = 0; c < chairs[r].length; ++c) {
+                if (chairs[r][c] !== next[r][c]) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    while (chairs_changed()) {
+        chairs = next;
+        next = next_chairs();
+    }
+
+    return chairs.map(row => row.map(function (item: TileType): number {return (item === TileFull) ? 1 : 0;}).reduce((a: number, b: number) => a + b)).reduce((a: number, b: number) => a + b);
 }
 
 
@@ -103,14 +158,21 @@ async function run_tests(): Promise<void> {
     }
     let all_passed = true;
 
-    const answer1 = await get_int_from_file(path.join(".", "data", "sample1.answer1"));
-    const computed1 = await part1(await load_input(path.join(".", "data", "sample1")));
-    if (computed1 != answer1) {
-        console.error("Test \'sample1\' part 1 failed: returned " + computed1 + ", expected " + answer1);
-        all_passed = false;
-    } else {
-        console.log("Test \'sample1\' part 1 passed");
+    async function run_test(sample: number, part: number): Promise<void> {
+        const answer = await get_int_from_file(path.join(".", "data", "sample" + sample + ".answer" + part));
+        const part_fn = (() => {if (part === 1) {return part1;} else {return part2;}})();
+
+        const computed = await part_fn(await load_input(path.join(".", "data", "sample" + sample)));
+        if (computed != answer) {
+            console.error("Test \'sample" + sample + "\' part " + part + " failed: returned " + computed + ", expected " + answer);
+            all_passed = false;
+        } else {
+            console.log("Test \'sample" + sample + "\' part " + part + " passed");
+        }
     }
+
+    await run_test(1, 1);
+    await run_test(1, 2);
 
     if (all_passed) {
         console.log("All tests passed");
