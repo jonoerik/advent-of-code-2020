@@ -48,9 +48,13 @@ create linebuf linebufsize 2 + allot
 variable charbuf
 
 create input-start-time 0 ,
+struct
+    cell% field bus-index
+    cell% field bus-id
+end-struct bus%
 0 value bus-count
 300 constant bus-max
-create bus-array bus-max cells allot
+bus% bus-max * %allot constant bus-array
 
 : load-input ( c-addr u -- )
     \ Load input from the filename provided
@@ -74,6 +78,7 @@ create bus-array bus-max cells allot
     input-start-time !
 
     0 to bus-count
+    0 \ Current index in input.
     true \ Number is valid (set to false if we encounter 'x').
     0 0 \ Current number.
     begin
@@ -95,11 +100,14 @@ create bus-array bus-max cells allot
                     ." Bus ID is too large." cr
                     1 (bye)
                 then
-                bus-array bus-count cells + !
+                bus-array bus-count bus% %size * + tuck
+                bus-id !
+                swap dup rot bus-index !
                 bus-count 1+ to bus-count
             else
                 2drop
             then
+            1 + \ Increment current index in input.
             true 0 0
         then
     repeat
@@ -112,7 +120,9 @@ create bus-array bus-max cells allot
             ." Bus ID is too large." cr
             1 (bye)
         then
-        bus-array bus-count cells + !
+        bus-array bus-count bus% %size * + tuck
+        bus-id !
+        bus-index !
         bus-count 1+ to bus-count
     then
 
@@ -120,8 +130,8 @@ create bus-array bus-max cells allot
 ;
 
 : calculate-bus-time ( i -- n )
-    \ For bus index i, return the time to wait for that bus.
-    input-start-time @ bus-array rot cells + @ dup -rot mod
+    \ For the ith bus in bus-array, return the time to wait for that bus.
+    input-start-time @ bus-array rot bus% %size * + bus-id @ dup -rot mod
     dup 0= if
         \ Bus arrives straight away.
         2drop 0
@@ -133,12 +143,12 @@ create bus-array bus-max cells allot
 
 : run-part1 ( -- n )
     \ Run part1 of the puzzle, and return the answer.
-    bus-array 0 cells + @ \ Current best bus ID.
+    bus-array bus-id @ \ Current best bus ID.
     0 calculate-bus-time \ Current best bus time.
     bus-count 1 ?do
         i calculate-bus-time
         2dup > if
-            -rot 2drop bus-array i cells + @ swap
+            -rot 2drop bus-array i bus% %size * + bus-id @ swap
         else
             drop
         then
@@ -226,6 +236,7 @@ variable test-string-buf
 : run-tests ( -- )
     true \ All tests passed.
     1 1 run-test
+    1 2 run-test
 
     if
         ." All tests passed." cr
