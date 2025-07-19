@@ -156,9 +156,67 @@ bus% bus-max * %allot constant bus-array
     *
 ;
 
+0 value bezout-r-1
+0 value bezout-r0
+0 value bezout-s-1
+0 value bezout-s0
+0 value bezout-t-1
+0 value bezout-t0
+
+: bezout-coefficients ( n1 n2 -- n3 n4)
+    \ Calculate Bezout's coefficients of n1 and n2,
+    \ using extended euclidean algorithm.
+    to bezout-r0 to bezout-r-1
+    1 to bezout-s-1 0 to bezout-s0
+    0 to bezout-t-1 1 to bezout-t0
+    begin
+        bezout-r-1 bezout-r0 /mod swap
+        bezout-r0 to bezout-r-1
+        to bezout-r0
+
+        dup bezout-s-1 swap bezout-s0 * -
+        bezout-s0 to bezout-s-1
+        to bezout-s0
+
+        bezout-t-1 swap bezout-t0 * -
+        bezout-t0 to bezout-t-1
+        to bezout-t0
+
+        bezout-r0 0=
+    until
+    bezout-r-1 1 <> if
+        ." Pair of inputs are not coprime." cr
+        1 (bye)
+    then
+    bezout-s-1 bezout-t-1
+;
+
+: chinese-remainder-theorem ( n1 a1 n2 a2 -- x )
+    \ In a system
+    \ x = a1 (mod n1)
+    \ x = a2 (mod n2)
+    \ Returns x, (mod (n1 * n2))
+    -rot dup -rot * 2swap over * rot 2swap
+    bezout-coefficients
+    -rot * -rot * +
+;
+
 : run-part2 ( -- n )
     \ Run part2 of the puzzle, and return the answer.
-    0 \ TODO
+    1 0 \ Prime the running values with x = 0 (mod 1).
+    bus-count 0 ?do
+        bus-array i bus% %size * + dup bus-id @ swap bus-index @
+        \ We're solving the set of congruences:
+        \ x + a = 0 mod n
+        \ i.e.
+        \ x = -a mod n
+        \ So we need to negate our bus indices before running the chinese remainder theorem.
+        negate
+        rot 2swap 2dup 2rot -rot
+        chinese-remainder-theorem
+        -rot * dup -rot mod
+    loop
+    swap mod
 ;
 
 : load-test-answer ( c-addr u -- n )
@@ -237,6 +295,11 @@ variable test-string-buf
     true \ All tests passed.
     1 1 run-test
     1 2 run-test
+    2 2 run-test
+    3 2 run-test
+    4 2 run-test
+    5 2 run-test
+    6 2 run-test
 
     if
         ." All tests passed." cr
