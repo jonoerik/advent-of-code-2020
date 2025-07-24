@@ -141,7 +141,7 @@ bus% bus-max * %allot constant bus-array
     then
 ;
 
-: run-part1 ( -- n )
+: run-part1 ( -- d )
     \ Run part1 of the puzzle, and return the answer.
     bus-array bus-id @ \ Current best bus ID.
     0 calculate-bus-time \ Current best bus time.
@@ -154,56 +154,238 @@ bus% bus-max * %allot constant bus-array
         then
     loop
     *
+    s>d
 ;
 
-0 value bezout-r-1
-0 value bezout-r0
-0 value bezout-s-1
-0 value bezout-s0
-0 value bezout-t-1
-0 value bezout-t0
-
-: bezout-coefficients ( n1 n2 -- n3 n4)
-    \ Calculate Bezout's coefficients of n1 and n2,
-    \ using extended euclidean algorithm.
-    to bezout-r0 to bezout-r-1
-    1 to bezout-s-1 0 to bezout-s0
-    0 to bezout-t-1 1 to bezout-t0
+: u-width ( u1 -- u2 )
+    \ Return number of bits required to hold u1.
+    0 swap
     begin
-        bezout-r-1 bezout-r0 /mod swap
-        bezout-r0 to bezout-r-1
-        to bezout-r0
+        dup 0<>
+    while
+        1 rshift swap 1+ swap
+    repeat
+    drop
+;
 
-        dup bezout-s-1 swap bezout-s0 * -
-        bezout-s0 to bezout-s-1
-        to bezout-s0
+: cell-width ( -- u )
+    true u-width
+;
 
-        bezout-t-1 swap bezout-t0 * -
-        bezout-t0 to bezout-t-1
-        to bezout-t0
+: ud-width ( ud -- u )
+    \ Return number of bits required to hold ud.
+    dup 0<> if
+        u-width cell-width + swap drop
+    else
+        drop u-width
+    then
+;
 
-        bezout-r0 0=
+: 2-rot ( d1 d2 d3 -- d3 d1 d2 )
+    2rot 2rot
+;
+
+: 4dup ( d1 d2 -- d1 d2 d1 d2 )
+    2swap 2dup 2rot 2dup 2-rot
+;
+
+: d* ( d1 d2 -- d3 )
+    \ Double multiplication
+    false \ Should the result be negated?
+    -rot 2dup
+    d0< -rot 2swap if
+        invert
+        -rot dnegate rot
+    then
+    >r 2swap r>
+    -rot 2dup
+    d0< -rot 2swap if
+        invert
+        -rot dnegate rot
+    then
+    >r
+
+    \ Stack: ud2 ud1, R: negate?
+    \ Calculate number of result bits.
+    4dup ud-width -rot ud-width +
+    cell-width 2* 1- \ Allow an extra bit's space, if case we need to negate.'
+    u> if
+        ." Result of d* too large for double width integer."
+        1 (bye)
+    then
+
+    \ Move the smaller number above the larger one on the stack.
+    \ From the bit width check, we know that at least one of the
+    \ numbers is small enough to fit in a single cell, so convert it.
+    4dup d< if 2swap then
+    0<> if
+        ." Unexpected large number in d*."
+        1 (bye)
+    then
+
+    \ Stack: ud u, R: negate?
+    tuck 2swap um* >r -rot um*
+    0<> if
+        ." Unexpected large number in d*."
+        1 (bye)
+    then
+    + r>
+
+    r> if
+        dnegate
+    then
+;
+
+: high-bit-1 ( -- x )
+    \ Return an unsigned number with the highest bit in the cell set to 1,
+    \ and all other bits 0.
+    1 cell-width 1- lshift
+;
+
+: udlshift ( ud1 u -- ud2 )
+    \ Double width unsigned left shift by u bits.
+    0 ?do
+        swap dup high-bit-1 and 0<>
+        rot 1 lshift swap if 1 or then
+        swap 1 lshift swap
+    loop
+;
+
+: udrshift ( ud1 u -- ud2 )
+    \ Double width unsigned right shift by u bits.
+    0 ?do
+        dup 1 and 0<>
+        rot 1 rshift swap if high-bit-1 or then
+        swap 1 rshift
+    loop
+;
+
+: 2and ( ud1 ud2 -- ud3 )
+    \ Bitwise and.
+    rot and -rot and swap
+;
+
+: 2or ( ud1 ud2 -- ud3 )
+    \ Bitwise or.
+    rot or -rot or swap
+;
+
+create ud/mod-full-q 0 s>d , ,
+create ud/mod-full-r 0 s>d , ,
+
+: ud/mod-full ( ud1 ud2 -- ud3 ud4 )
+    \ Double /mod operator.
+    \ Similar to ud/mod, but dealing only in double width integers.
+    \ Returns remainder ud3, and quotient ud4.
+    \ https://en.wikipedia.org/wiki/Division_algorithm#Integer_division_(unsigned)_with_remainder
+    2dup d0= if
+        ." Divide by 0 in ud/mod."
+        1 (bye)
+    then
+
+    0 s>d ud/mod-full-q 2!
+    0 s>d ud/mod-full-r 2!
+
+    0 cell-width 2* 1- ?do
+        ud/mod-full-r 2@ 1 udlshift
+        2rot 2dup 1 s>d i udlshift 2and d0<> if 1 else 0 then
+        >r 2-rot r> m+
+        4dup du<= if
+            2over d-
+            ud/mod-full-q 2@ 1 s>d i udlshift 2or ud/mod-full-q 2!
+        then
+        ud/mod-full-r 2!
+    -1 +loop
+
+    2drop 2drop
+    ud/mod-full-r 2@ ud/mod-full-q 2@
+;
+
+create d/mod-full-d2-abs 0 s>d , ,
+
+: d/mod-full ( d1 d2 -- d3 d4 )
+    \ No bounds checking here; maybe don't pass in too large inputs.
+    2dup dabs d/mod-full-d2-abs 2!
+
+    4dup d0< dup if >r 2swap dnegate 2swap r> then
+    -rot d0< dup if 2rot dnegate 2-rot then
+    over <>
+
+    2-rot ud/mod-full 2rot
+    if \ (d1 < 0 and d2 >= 0) or (d1 >= 0 and d2 < 0)
+        >r
+        1 s>d d+ dnegate
+        2swap
+        d/mod-full-d2-abs 2@ 2swap d-
+        2swap
+        r>
+    then
+    if \ (d2 > 0)
+        2swap dnegate 2swap
+    then
+;
+
+create bezout-r-1 0 s>d , ,
+create bezout-r0 0 s>d , ,
+create bezout-s-1 0 s>d , ,
+create bezout-s0 0 s>d , ,
+create bezout-t-1 0 s>d , ,
+create bezout-t0 0 s>d , ,
+
+: bezout-coefficients ( ud1 ud2 -- d3 d4 )
+    \ Calculate Bezout's coefficients of d1 and d2,
+    \ using extended euclidean algorithm.
+    bezout-r0 2! bezout-r-1 2!
+    1 s>d bezout-s-1 2! 0 s>d bezout-s0 2!
+    0 s>d bezout-t-1 2! 1 s>d bezout-t0 2!
+    begin
+        bezout-r-1 2@ bezout-r0 2@ ud/mod-full 2swap
+        bezout-r0 2@ bezout-r-1 2!
+        bezout-r0 2!
+
+        2dup bezout-s-1 2@ 2swap bezout-s0 2@ d* d-
+        bezout-s0 2@ bezout-s-1 2!
+        bezout-s0 2!
+
+        bezout-t-1 2@ 2swap bezout-t0 2@ d* d-
+        bezout-t0 2@ bezout-t-1 2!
+        bezout-t0 2!
+
+        bezout-r0 2@ d0=
     until
-    bezout-r-1 1 <> if
+
+    bezout-r-1 2@ 1. d<> if
         ." Pair of inputs are not coprime." cr
         1 (bye)
     then
-    bezout-s-1 bezout-t-1
+    bezout-s-1 2@ bezout-t-1 2@
 ;
 
-: chinese-remainder-theorem ( n1 a1 n2 a2 -- x )
+create crt-dn1 0 s>d , ,
+create crt-da1 0 s>d , ,
+create crt-dn2 0 s>d , ,
+create crt-da2 0 s>d , ,
+
+: chinese-remainder-theorem ( dn1 da1 dn2 da2 -- dx )
     \ In a system
-    \ x = a1 (mod n1)
-    \ x = a2 (mod n2)
-    \ Returns x, (mod (n1 * n2))
-    -rot dup -rot * 2swap over * rot 2swap
+    \ dx = da1 (mod dn1)
+    \ dx = da2 (mod dn2)
+    \ Returns dx, (mod (dn1 * dn2))
+    crt-da2 2! crt-dn2 2! crt-da1 2! crt-dn1 2!
+    crt-dn2 2@ crt-dn1 2@
     bezout-coefficients
-    -rot * -rot * +
+    crt-dn1 2@ d* crt-da2 2@ d*
+    2swap crt-dn2 2@ d* crt-da1 2@ d*
+    d+
+    crt-dn1 2@ crt-dn2 2@ d* d/mod-full 2drop
 ;
 
-: run-part2 ( -- n )
+create part2-running-mod 0 s>d , ,
+create part2-running-remainder 0 s>d , ,
+
+: run-part2 ( -- d )
     \ Run part2 of the puzzle, and return the answer.
-    1 0 \ Prime the running values with x = 0 (mod 1).
+    1 s>d part2-running-mod 2! 0 s>d part2-running-remainder 2! \ Prime the running values with x = 0 (mod 1).
     bus-count 0 ?do
         bus-array i bus% %size * + dup bus-id @ swap bus-index @
         \ We're solving the set of congruences:
@@ -211,15 +393,22 @@ bus% bus-max * %allot constant bus-array
         \ i.e.
         \ x = -a mod n
         \ So we need to negate our bus indices before running the chinese remainder theorem.
-        negate
-        rot 2swap 2dup 2rot -rot
+        negate swap tuck mod
+
+        swap dup -rot
+
+        part2-running-mod 2@ 2swap part2-running-remainder 2@ 2swap
+        s>d rot s>d
         chinese-remainder-theorem
-        -rot * dup -rot mod
+
+        rot s>d part2-running-mod 2@ d* 2dup part2-running-mod 2!
+        ud/mod-full 2drop
+        part2-running-remainder 2!
     loop
-    swap mod
+    part2-running-remainder 2@
 ;
 
-: load-test-answer ( c-addr u -- n )
+: load-test-answer ( c-addr u -- d )
     \ From the filename on the stack, load the file, parse a single int
     \ in the contents, and return it on the stack
     r/o open-file 0<> if
@@ -233,11 +422,13 @@ bus% bus-max * %allot constant bus-array
         ." Failed to open test answer file" cr
         1 (bye)
     then
+
     linebuf swap
-    0 0 2swap >number 2drop 0 <> if
-        ." Test answer value too large for single cell integer" cr
+    0 0 2swap >number 0 <> if
+        ." Unable to convert expected test result into a number." cr
         1 (bye)
     then
+    drop
 
     input-fd close-file throw
 ;
@@ -245,6 +436,11 @@ bus% bus-max * %allot constant bus-array
 : .-no-space ( n -- )
     \ Display number n without trailling space.
     0 .r
+;
+
+: d.-no-space ( d -- )
+    \ Display number d without trailling space.
+    0 d.r
 ;
 
 : n-to-string ( n -- c-addr u )
@@ -273,18 +469,18 @@ variable test-string-buf
     then
 
     s" .answer" test-string-buf $+!
-    swap dup n-to-string test-string-buf $+! swap
+    rot dup n-to-string test-string-buf $+! -rot
     test-string-buf $@ load-test-answer
 
-    2swap swap s" sample" test-string-buf $! n-to-string test-string-buf $+!
+    2rot swap s" sample" test-string-buf $! n-to-string test-string-buf $+!
     s"  part" test-string-buf $+! n-to-string test-string-buf $+!
 
-    2dup = if
+    2dup 2rot 2dup 2rot d= if
         test-string-buf $@ type ."  :: PASSED" cr
-        2drop
+        2drop 2drop
     else
         test-string-buf $@ type ."  :: FAILED" cr
-        swap .\" \tReturned " .-no-space ." , expected " .-no-space ." ." cr
+        2swap .\" \tReturned " d.-no-space ." , expected " d.-no-space ." ." cr
         drop false
     then
 
@@ -321,7 +517,7 @@ variable test-string-buf
     else
         run-part2
     then
-    . cr
+    d. cr
     0 (bye)
 ;
 
