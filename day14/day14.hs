@@ -1,16 +1,23 @@
 -- Required for `deriving NFData`
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+-- Required for `makeLenses`
+{-# LANGUAGE TemplateHaskell #-}
 
 import Control.DeepSeq
+import Control.Lens hiding (parts, argument)
 import Control.Monad
+import Control.Monad.State
+import Data.Bits
 import Data.Char
 import Data.List
+import Data.Map qualified as Map
+import Data.Maybe
 import GHC.Generics (Generic)
 import Options.Applicative
 import System.Directory
 import System.FilePath
 import System.IO
-import Test.HUnit
+import Test.HUnit qualified as HUnit
 import Text.Regex.Applicative
 
 data Part = Part1 | Part2
@@ -51,24 +58,6 @@ instance Show Instruction where
     show (Write a b) = "mem[" ++ show a ++ "] = " ++ show b
 type InputType = [Instruction]
 
-main :: IO ()
-main = run =<< execParser opts
-    where
-        opts = info (arg_parser <**> helper)
-            ( fullDesc
-            <> progDesc "Advent of Code 2020 Day 14" )
-
-run :: Args -> IO ()
-run (RunPart Part1 path) = do
-    input <- load_input path
-    let answer = part1 input
-    putStrLn $ show answer
-run (RunPart Part2 path) = do
-    input <- load_input path
-    let answer = part2 input
-    putStrLn $ show answer
-run RunTests = run_tests
-
 line_to_instruction :: String -> Maybe Instruction
 line_to_instruction line = do
     let maskbit_regex = X <$ sym 'X' <|> Bit False <$ sym '0' <|> Bit True <$ sym '1'
@@ -88,8 +77,29 @@ load_input path = withFile path ReadMode $ \handle -> do
     -- Otherwise, lazy IO might mean hGetContents is called after the handle is closed.
     return $!! input_data
 
+data P1State = P1State
+    { _mask :: Maybe Mask
+    , _memory :: Map.Map Integer Integer
+    }
+makeLenses ''P1State
+
+mask_bit_to_val :: MaskBit -> Integer -> Integer -> Integer -> Integer
+mask_bit_to_val X v _ _ = v
+mask_bit_to_val (Bit True) _ v _ = v
+mask_bit_to_val (Bit False) _ _ v = v
+
+mask_val :: Mask -> Integer -> Integer
+mask_val m i = i .&. (foldl (\a b -> a * 2 + (mask_bit_to_val b 1 1 0)) 0 m) .|. (foldl (\a b -> a * 2 + (mask_bit_to_val b 0 1 0)) 0 m)
+
+run_instruction :: Instruction -> State P1State ()
+run_instruction (Mask m) = mask .= Just m
+run_instruction (Write addr val) = do
+    current_mask <- use mask
+    memory %= \m -> Map.insert addr (mask_val (fromJust current_mask) val) m
+
 part1 :: InputType -> Integer
-part1 input = toInteger $ length input -- TODO
+part1 input = Map.foldr (+) 0 $ view memory final_state
+    where final_state = execState (traverse run_instruction input) (P1State Nothing Map.empty)
 
 part2 :: InputType -> Integer
 part2 input = toInteger $ length input -- TODO
@@ -114,8 +124,26 @@ run_tests = do
             input_data <- sequence [load_input input_path | (input_path, _) <- inputs]
             let answers = [part_fn input | input <- input_data]
             expected <- sequence [load_answer answer_path | (_, answer_path) <- inputs]
-            return $ TestLabel ("part " ++ part_str) $ TestList [TestLabel (takeBaseName i) $ TestCase $ assertEqual "" e a | ((i, _), a, e) <- zip3 inputs answers expected]
+            return $ HUnit.TestLabel ("part " ++ part_str) $ HUnit.TestList [HUnit.TestLabel (takeBaseName i) $ HUnit.TestCase $ HUnit.assertEqual "" e a | ((i, _), a, e) <- zip3 inputs answers expected]
 
     tests <- sequence $ [part_tests "1" part1, part_tests "2" part2]
-    _ <- runTestTT $ TestList tests
+    _ <- HUnit.runTestTT $ HUnit.TestList tests
     return ()
+
+run :: Args -> IO ()
+run (RunPart Part1 path) = do
+    input <- load_input path
+    let answer = part1 input
+    putStrLn $ show answer
+run (RunPart Part2 path) = do
+    input <- load_input path
+    let answer = part2 input
+    putStrLn $ show answer
+run RunTests = run_tests
+
+main :: IO ()
+main = run =<< execParser opts
+    where
+        opts = info (arg_parser <**> helper)
+            ( fullDesc
+            <> progDesc "Advent of Code 2020 Day 14" )

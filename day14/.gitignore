@@ -1,3 +1,5 @@
 day14
 *.hi
 *.o
+*.dyn_hi
+*.dyn_o
