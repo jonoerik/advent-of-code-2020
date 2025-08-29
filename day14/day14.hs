@@ -46,7 +46,7 @@ arg_parser = RunPart
 
 -- Input data types must derive Generic and NFData, so we can use $!! from Control.DeepSeq to force
 -- their evaluation before the handle to the input file is closed.
-data MaskBit = X | Bit Bool deriving (Generic, NFData)
+data MaskBit = X | Bit Bool deriving (Generic, NFData, Eq, Ord)
 instance Show MaskBit where
     show (X) = "X"
     show (Bit True) = "1"
@@ -78,8 +78,8 @@ load_input path = withFile path ReadMode $ \handle -> do
     return $!! input_data
 
 data P1State = P1State
-    { _mask :: Maybe Mask
-    , _memory :: Map.Map Integer Integer
+    { _p1mask :: Maybe Mask
+    , _p1memory :: Map.Map Integer Integer
     }
 makeLenses ''P1State
 
@@ -91,18 +91,67 @@ mask_bit_to_val (Bit False) _ _ v = v
 mask_val :: Mask -> Integer -> Integer
 mask_val m i = i .&. (foldl (\a b -> a * 2 + (mask_bit_to_val b 1 1 0)) 0 m) .|. (foldl (\a b -> a * 2 + (mask_bit_to_val b 0 1 0)) 0 m)
 
-run_instruction :: Instruction -> State P1State ()
-run_instruction (Mask m) = mask .= Just m
-run_instruction (Write addr val) = do
-    current_mask <- use mask
-    memory %= \m -> Map.insert addr (mask_val (fromJust current_mask) val) m
+run_instruction_part1 :: Instruction -> State P1State ()
+run_instruction_part1 (Mask m) = p1mask .= Just m
+run_instruction_part1 (Write addr val) = do
+    current_mask <- use p1mask
+    p1memory %= \m -> Map.insert addr (mask_val (fromJust current_mask) val) m
 
 part1 :: InputType -> Integer
-part1 input = Map.foldr (+) 0 $ view memory final_state
-    where final_state = execState (traverse run_instruction input) (P1State Nothing Map.empty)
+part1 input = Map.foldr (+) 0 $ view p1memory final_state
+    where final_state = execState (traverse run_instruction_part1 input) (P1State Nothing Map.empty)
+
+data P2State = P2State
+    { _p2mask :: Maybe Mask
+    , _p2memory :: Map.Map Mask Integer
+    }
+makeLenses ''P2State
+
+-- Return a list of addresses which together cover all addresses in a1 except those in a2.
+addr_without :: Mask -> Mask -> [Mask]
+addr_without [] [] = []
+addr_without _ [] = error "Mismatched mask sizes"
+addr_without [] _ = error "Mismatched mask sizes"
+addr_without (a1:a1s) (a2:a2s) = case (a1, a2) of
+        (Bit False, Bit False) -> fixed_value $ Bit False
+        (Bit False, Bit True) -> no_overlap
+        (Bit True, Bit False) -> no_overlap
+        (Bit True, Bit True) -> fixed_value $ Bit True
+        (X, Bit _) -> (addr_without (Bit True : a1s) (a2:a2s)) ++ (addr_without (Bit False : a1s) (a2:a2s))
+        (Bit False, X) -> fixed_value $ Bit False
+        (Bit True, X) -> fixed_value $ Bit True
+        (X, X) -> fixed_value X
+    where
+        result_tail = addr_without a1s a2s
+        fixed_value = \b -> map ((:) b) result_tail -- Resulting addresses must have value b in the first dimension.
+        no_overlap = [a1 : a1s] -- The two input masks don't overlap at all, as they're completely separated in the first dimension.
+
+part2_mask_addr :: Integer -> Mask -> Mask
+part2_mask_addr 0 [] = []
+part2_mask_addr _ [] = error "Address too large for current mask"
+part2_mask_addr a m = (part2_mask_addr (a .>>. 1) (init m)) ++ [case last m of
+        Bit False -> if a .&. 1 == 1 then Bit True else Bit False
+        Bit True -> Bit True
+        X -> X
+    ]
+
+run_instruction_part2 :: Instruction -> State P2State ()
+run_instruction_part2 (Mask m) = p2mask .= Just m
+run_instruction_part2 (Write addr val) = do
+    current_mask <- use p2mask
+    let modified_addr = part2_mask_addr addr (fromJust current_mask)
+    p2memory %= Map.foldrWithKey (\k v m -> foldr (\a -> Map.insert a v) m (addr_without k modified_addr)) Map.empty
+    p2memory %= Map.insert modified_addr val
+
+part2_memory_sum :: Map.Map Mask Integer -> Integer
+part2_memory_sum = Map.foldrWithKey (\k v r -> r + v * 2 ^ (length . filter (\x -> case x of
+        X -> True
+        Bit _ -> False
+    )) k) 0
 
 part2 :: InputType -> Integer
-part2 input = toInteger $ length input -- TODO
+part2 input = part2_memory_sum $ view p2memory final_state
+    where final_state = execState (traverse run_instruction_part2 input) (P2State Nothing Map.empty)
 
 load_answer :: FilePath -> IO Integer
 load_answer path = withFile path ReadMode $ \handle -> do

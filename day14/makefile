@@ -8,4 +8,4 @@ day14: day14.hs
 	ghc $(GHCWARN) -o $@ $^
 
 clean:
-	rm -f ./day14 ./day14.hi ./day14.o
+	rm -vf ./day14 ./day14.o ./day14.hi ./day14.dyn_o ./day14.dyn_hi
