@@ -113,14 +113,10 @@ addr_without [] [] = []
 addr_without _ [] = error "Mismatched mask sizes"
 addr_without [] _ = error "Mismatched mask sizes"
 addr_without (a1:a1s) (a2:a2s) = case (a1, a2) of
-        (Bit False, Bit False) -> fixed_value $ Bit False
         (Bit False, Bit True) -> no_overlap
         (Bit True, Bit False) -> no_overlap
-        (Bit True, Bit True) -> fixed_value $ Bit True
         (X, Bit _) -> (addr_without (Bit True : a1s) (a2:a2s)) ++ (addr_without (Bit False : a1s) (a2:a2s))
-        (Bit False, X) -> fixed_value $ Bit False
-        (Bit True, X) -> fixed_value $ Bit True
-        (X, X) -> fixed_value X
+        (_, _) -> fixed_value $ a1
     where
         result_tail = addr_without a1s a2s
         fixed_value = \b -> map ((:) b) result_tail -- Resulting addresses must have value b in the first dimension.
