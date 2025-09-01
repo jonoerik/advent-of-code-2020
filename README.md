@@ -19,7 +19,7 @@ https://adventofcode.com/2020/
 | 12 | ✔️ | COBOL |
 | 13 | ✔️ | Forth |
 | 14 | ✔️ | Haskell |
-| 15 | ❌ | Rust |
+| 15 | ✔️ | Rust |
 | 16 | ❌ | |
 | 17 | ❌ | |
 | 18 | ❌ | |

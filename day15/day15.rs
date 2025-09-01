@@ -40,7 +40,7 @@ fn load_input(path: &Path) -> Result<Vec<Num>, String> {
     }
 }
 
-fn part1(input: &Vec<Num>) -> Num {
+fn nth_word(input: &Vec<Num>, n: usize) -> Num {
     assert!(input.len() > 0);
     // Map of number to turn on which that number was last spoken.
     let mut hm = HashMap::<Num, Num>::new();
@@ -57,7 +57,7 @@ fn part1(input: &Vec<Num>) -> Num {
             });
     };
 
-    for i in (input.len()+1) .. 2020 {
+    for i in (input.len()+1) .. n {
         match hm.entry(next) {
             HashMapEntry::Occupied(mut e) => {
                 next = i - e.get();
@@ -73,8 +73,12 @@ fn part1(input: &Vec<Num>) -> Num {
     return next;
 }
 
+fn part1(input: &Vec<Num>) -> Num {
+    return nth_word(input, 2020);
+}
+
 fn part2(input: &Vec<Num>) -> Num {
-    todo!();
+    return nth_word(input, 30000000);
 }
 
 fn main() -> ExitCode {
