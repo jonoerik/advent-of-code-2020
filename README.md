@@ -18,8 +18,8 @@ https://adventofcode.com/2020/
 | 11 | ✔️ | TypeScript (Node) |
 | 12 | ✔️ | COBOL |
 | 13 | ✔️ | Forth |
-| 14 | ❌ | Haskell |
-| 15 | ❌ | |
+| 14 | ✔️ | Haskell |
+| 15 | ❌ | Rust |
 | 16 | ❌ | |
 | 17 | ❌ | |
 | 18 | ❌ | |
