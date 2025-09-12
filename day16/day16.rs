@@ -7,6 +7,7 @@
 use std::assert_matches::assert_matches;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
 use std::fs::File;
 use std::io::BufRead;
@@ -116,13 +117,105 @@ fn load_input(path: &Path) -> Result<Input, AocError> {
     });
 }
 
-fn part1(input: &Input) -> u32 {
-    let is_field_value_valid = |x| { input.fields.values().any(|field_ranges| {field_ranges.iter().any(|(a, b)| { a <= x && x <= b })} ) };
-    input.nearby.iter().map(|ticket| { ticket.iter() }).flatten().map(|x| { if !is_field_value_valid(x) {x} else {&0} }).sum()
+fn is_field_value_valid(value: &u32, input: &Input) -> bool {
+    input.fields.values()
+        .any(|field_ranges| {
+            field_ranges.iter()
+                .any(|(a, b)| {
+                    a <= value && value <= b
+                })
+        })
 }
 
-fn part2(input: &Input) -> u32 {
-    todo!();
+fn part1(input: &Input) -> u64 {
+    input.nearby
+        .iter()
+        .map(|ticket| { ticket.iter() })
+        .flatten()
+        .map(|x| {
+            if !is_field_value_valid(x, input) {u64::from(*x)} else {0u64}
+        })
+        .sum()
+}
+
+fn part2(input: &Input) -> u64 {
+    // Remove invalid tickets.
+    let nearby_tickets: Vec<&Ticket> =
+        input.nearby.iter()
+        .filter(|ticket| {
+            ticket.iter().all(|field_value| {
+                is_field_value_valid(field_value, input)
+            })
+        }).collect();
+
+    // Map each field to (index in each ticket of this field if known, vector of value ranges).
+    let mut fields: HashMap<String, (Option<usize>, Vec<ValueRange>)> =
+        HashMap::from_iter(input.fields.iter().map(|(k, v)| {
+            (k.clone(), (None::<usize>, v.clone()))
+        }));
+
+    let mut remaining_indices = HashSet::<usize>::from_iter(0..input.ticket.len());
+    let mut remaining_fields = HashSet::<String>::from_iter(fields.keys().map(|s| { s.clone() }));
+
+    while !remaining_indices.is_empty() {
+        let find_next_field = || -> Option<(String, usize)>{
+            for (prospective_field_index, field_name) in itertools::iproduct!(remaining_indices.iter(), remaining_fields.iter()) {
+                if fields[field_name].0.is_some() {
+                    continue;
+                }
+
+                // Is the assignment of the current field to index i valid?
+                let field_assignment_valid = |f: &String, i: &usize| -> bool {
+                    nearby_tickets.iter().all(|nearby_ticket| {
+                        fields[f].1.iter().any(|(a, b)| {
+                            *a <= nearby_ticket[*i] && nearby_ticket[*i] <= *b
+                        })
+                    })
+                };
+
+                if field_assignment_valid(field_name, prospective_field_index) {
+                    // This assignment is valid.
+                    if remaining_indices.iter() // No other index fits this field.
+                        .filter(|i| { *i != prospective_field_index })
+                        .all(|i| {
+                            !field_assignment_valid(field_name, i)
+                        })
+                    || remaining_fields.iter() // No other field works with this index.
+                        .filter(|f| {*f != field_name})
+                        .all(|f| {
+                            !field_assignment_valid(f, prospective_field_index)
+                        })
+                    {
+                        return Some((field_name.clone(), *prospective_field_index));
+                    }
+                }
+            }
+
+            return None;
+        };
+
+        match find_next_field() {
+            Some((field_name, field_index)) => {
+                match fields.get_mut(&field_name) {
+                    Some((i, _)) => {*i = Some(field_index)},
+                    None => unreachable!(),
+                }
+                remaining_fields.remove(&field_name);
+                remaining_indices.remove(&field_index);
+            },
+            None => assert!(false),
+        }
+    }
+
+    return fields
+        .iter()
+        .filter(|(k, _)| {
+            k.starts_with("departure")
+        })
+        .map(|(_, (i, _))| {
+            u64::from(input.ticket[i.unwrap()])
+        })
+        .product();
 }
 
 fn main() -> ExitCode {
@@ -152,7 +245,7 @@ fn main() -> ExitCode {
 })]
 #[test]
 fn test_case(input_path: &Path, expected_result: &str, result_path: &Path) -> Result<(), AocError> {
-    let expected_result = expected_result.trim().parse::<u32>()?;
+    let expected_result = expected_result.trim().parse::<u64>()?;
     let part_fn = if result_path.extension().unwrap().to_str().unwrap().ends_with("1") {part1} else {part2};
     let result = part_fn(&load_input(input_path)?);
     assert_eq!(result, expected_result);
