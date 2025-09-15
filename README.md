@@ -20,8 +20,8 @@ https://adventofcode.com/2020/
 | 13 | ✔️ | Forth |
 | 14 | ✔️ | Haskell |
 | 15 | ✔️ | Rust |
-| 16 | ❌ | |
-| 17 | ❌ | |
+| 16 | ✔️ | Rust |
+| 17 | ❌ | Haskell |
 | 18 | ❌ | |
 | 19 | ❌ | |
 | 20 | ❌ | |
