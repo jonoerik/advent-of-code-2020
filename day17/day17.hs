@@ -46,24 +46,39 @@ load_input path = withFile path ReadMode $ \handle -> do
     -- Otherwise, lazy IO might mean hGetContents is called after the handle is closed.
     return $!! array ((0, 0), (height-1, width-1)) [((r, c), input !! r !! c) | (r, c) <- range ((0, 0), (height-1, width-1))]
 
-type ConwayState = Array (Int, Int, Int) Bool
+class Ix a => ConwayCoord a where
+    initial_state :: InputType -> Array a Bool
+    neighbours :: a -> [a]
+    expand_bounds :: (a, a) -> (a, a)
 
-initial_state :: InputType -> ConwayState
-initial_state input = array new_bounds [((i, j, k), if k == 0 then input!(i, j) else False) | (i, j, k) <- range new_bounds]
-    where
-        ((i_min, j_min), (i_max, j_max)) = bounds input
-        new_bounds = ((i_min, j_min, 0), (i_max, j_max, 0))
+instance ConwayCoord (Int, Int, Int) where
+    initial_state input = array new_bounds [((i, j, k), if k == 0 then input!(i, j) else False) | (i, j, k) <- range new_bounds]
+        where
+            ((i_min, j_min), (i_max, j_max)) = bounds input
+            new_bounds = ((i_min, j_min, 0), (i_max, j_max, 0))
 
-neighbours :: (Int, Int, Int) -> [(Int, Int, Int)]
-neighbours (i, j, k) = filter (\x -> x /= (i, j, k)) [(i+di, j+dj, k+dk)
+    neighbours (i, j, k) = filter (\x -> x /= (i, j, k)) [(i+di, j+dj, k+dk)
         | di <- [-1, 0, 1], dj <- [-1, 0, 1], dk <- [-1, 0, 1]]
 
+    expand_bounds ((a, b, c), (d, e, f)) = ((a-1, b-1, c-1), (d+1, e+1, f+1))
+
+instance ConwayCoord (Int, Int, Int, Int) where
+    initial_state input = array new_bounds [((i, j, k, l), if k == 0 && l == 0 then input!(i, j) else False) | (i, j, k, l) <- range new_bounds]
+        where
+            ((i_min, j_min), (i_max, j_max)) = bounds input
+            new_bounds = ((i_min, j_min, 0, 0), (i_max, j_max, 0, 0))
+
+    neighbours (i, j, k, l) = filter (\x -> x /= (i, j, k, l)) [(i+di, j+dj, k+dk, l+dl)
+        | di <- [-1, 0, 1], dj <- [-1, 0, 1], dk <- [-1, 0, 1], dl <- [-1, 0, 1]]
+
+    expand_bounds ((a, b, c, d), (e, f, g, h)) = ((a-1, b-1, c-1, d-1), (e+1, f+1, g+1, h+1))
+
 -- https://stackoverflow.com/questions/573751/using-foldl-to-count-number-of-true-values/573767#573767
-neighbour_count :: ConwayState -> (Int, Int, Int) -> Int
+neighbour_count :: ConwayCoord a => Array a Bool -> a -> Int
 neighbour_count state pos = sum $ map fromEnum [if inRange state_bounds neighbour_pos then state!neighbour_pos else False | neighbour_pos <- neighbours pos]
     where state_bounds = bounds state
 
-next_iteration :: ConwayState -> ConwayState
+next_iteration :: ConwayCoord a => Array a Bool -> Array a Bool
 next_iteration prev = array new_bounds [
     (pos, if (if inRange old_bounds pos then prev!pos else False)
         then (inRange (2, 3) (neighbour_count prev pos))
@@ -71,17 +86,18 @@ next_iteration prev = array new_bounds [
     | pos <- range new_bounds]
     where
         old_bounds = bounds prev
-        ((i_min, j_min, k_min), (i_max, j_max, k_max)) = old_bounds
-        new_bounds = ((i_min-1, j_min-1, k_min-1), (i_max+1, j_max+1, k_max+1))
+        new_bounds = expand_bounds old_bounds
 
-count_active :: ConwayState -> Int
+count_active :: ConwayCoord a => Array a Bool -> Int
 count_active state = sum $ fmap fromEnum state
 
 part1 :: InputType -> Integer
-part1 input = toInteger $ count_active $ (iterate next_iteration (initial_state input)) !! 6
+part1 input = toInteger $ count_active $ (iterate next_iteration initial) !! 6
+    where initial :: Array (Int, Int, Int) Bool = initial_state input
 
 part2 :: InputType -> Integer
-part2 input = 0 -- TODO
+part2 input = toInteger $ count_active $ (iterate next_iteration initial) !! 6
+    where initial :: Array (Int, Int, Int, Int) Bool = initial_state input
 
 load_answer :: FilePath -> IO Integer
 load_answer path = withFile path ReadMode $ \handle -> do

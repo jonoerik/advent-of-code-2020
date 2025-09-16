@@ -21,7 +21,7 @@ https://adventofcode.com/2020/
 | 14 | ✔️ | Haskell |
 | 15 | ✔️ | Rust |
 | 16 | ✔️ | Rust |
-| 17 | ❌ | Haskell |
+| 17 | ✔️ | Haskell |
 | 18 | ❌ | |
 | 19 | ❌ | |
 | 20 | ❌ | |
