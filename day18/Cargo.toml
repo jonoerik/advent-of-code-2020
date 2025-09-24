@@ -1,0 +1,13 @@
+[package]
+name = "day18"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "day18"
+path = "./day18.rs"
+
+[dependencies]
+clap = { version = "4.5.46", features = ["derive"] }
+datatest = "0.8.0"
+regex = "1.11.2"
