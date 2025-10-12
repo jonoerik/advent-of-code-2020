@@ -3,8 +3,10 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <queue>
 #include <regex>
 #include <sstream>
+#include <stack>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -114,45 +116,83 @@ input_t load_input(std::filesystem::path path) {
     return Input{rules, messages};
 }
 
+
 // Needed for std::visit.
 template<class... Ts>
 struct visit_lambdas : Ts... { using Ts::operator()...; };
 
 result_t part1(const input_t& input) {
-    auto rule_to_regex_str = [&](this auto&& self, size_t i) -> std::string {
-        auto& rule = input.rules.at(i);
-        if (rule.size() == 0) {
-            return "";
-        }
+    // Input rules describe a Context Free Language.
+    // To test if each message is in the language, we convert
+    // the language to a Pushdown Automaton (PDA):
+    // - Input alphabet of letters, (implemented as std::string elements)
+    // - Stack alphabet of letters and rule indices (implemented as rule_element_t)
+    // - Accepting state requires both input and stack to be empty
+    // Transitions are determined from input.rules on the fly.
+    // We run this PDA to test if each message is accepted.
 
-        std::string result = "(?:";
-        bool first = true;
-        for (auto& rule_chain : rule) {
-            if (!first) {
-                result.append("|");
-            }
-            for (auto& rule_element : rule_chain) {
-                result.append(std::visit(visit_lambdas{
-                    [&](size_t next_index) -> std::string { return self(next_index); },
-                    [&](std::string literal) -> std::string { return literal; }
-                }, rule_element));
-            }
-            first = false;
-        }
-        result.append(")");
-        return result;
+    struct PdaState {
+        std::string input;
+        std::stack<rule_element_t> stack;
+        PdaState(const std::string& i, const std::stack<rule_element_t>& s) :
+            input(i),
+            stack(s)
+            {}
     };
 
-    // Constriuct a regex to match rule 0.
-    // Could alternatively build a FSM to check the messages, but we'd be basically re-implementing
-    // a subset of the regex engine with worse performance.
-    std::regex rule_re(rule_to_regex_str(0));
+    auto message_in_language = [&input](const std::string& message) -> bool {
+        // Using a queue for states means we're performing a breadth first search of the state space,
+        // so even if recursive rules could keep adding new states to the queue, we'll still find a terminating parse if
+        // one exists.
+        std::queue<PdaState> states;
+        states.push(PdaState(message, std::stack<rule_element_t>({0uz})));
+
+        while (!states.empty()) {
+            PdaState current = std::move(states.front());
+            states.pop();
+
+            if (current.stack.empty()) {
+                if (current.input.empty()) {
+                    // PDA successfully parses message.
+                    return true;
+                } else {
+                    // Input remains after stack emptied; so this PDA state fails
+                    // to parse message.
+                    continue;
+                }
+            }
+
+            rule_element_t rule = std::move(current.stack.top());
+            current.stack.pop();
+            std::visit(visit_lambdas{
+                [&](std::string s){
+                    // Rule "x"
+                    if (current.input.starts_with(s)) {
+                        current.input.erase(0, s.length());
+                        states.push(std::move(current));
+                    } else {
+                        // This PDA state can't match the input.
+                    }
+                },
+                [&](size_t i){
+                    // Rule 1, 2, etc
+                    for (auto& rule_option : input.rules.at(i)) {
+                        PdaState new_state(current.input, current.stack);
+                        for (auto it = rule_option.rbegin(); it != rule_option.rend(); ++it) {
+                            new_state.stack.push(*it);
+                        }
+                        states.push(std::move(new_state));
+                    }
+                }
+            }, rule);
+        }
+        return false;
+    };
 
     result_t result = 0;
     for (auto& message : input.messages) {
-        std::smatch match;
-        if (std::regex_match(message, match, rule_re)) {
-            result += 1;
+        if (message_in_language(message)) {
+            ++result;
         }
     }
     return result;
@@ -160,7 +200,10 @@ result_t part1(const input_t& input) {
 
 
 result_t part2(const input_t& input) {
-    return 0; //TODO
+    input_t modified_input = input;
+    modified_input.rules[8uz] = {{42uz}, {42uz, 8uz}};
+    modified_input.rules[11uz] = {{42uz, 31uz}, {42uz, 11uz, 31uz}};
+    return part1(modified_input);
 }
 
 
