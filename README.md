@@ -24,7 +24,7 @@ https://adventofcode.com/2020/
 | 17 | ✔️ | Haskell |
 | 18 | ✔️ | Rust |
 | 19 | ✔️ | C++ |
-| 20 | ❌ | Python |
+| 20 | ✔️ | Python |
 | 21 | ❌ | |
 | 22 | ❌ | |
 | 23 | ❌ | |

@@ -23,16 +23,21 @@ def load(input_path: Path) -> Input:
         }
 
 
-def part1(input: Input) -> int:
+def find_corner_tiles(input: Input) -> tuple[list[int], int]:
+    """
+    Return the IDs of the four corner tiles, and the number of times the first returned corner tile
+    should be rotated clockwise 90 degrees so that it correctly sits in the top-left corner of the final image.
+    """
+
     def norm_edge(edge: list[bool]) -> list[bool]:
-        # An edge is normalised if it comes lexicographically before its reverse.
+        """An edge is normalised if it comes lexicographically before its reverse."""
         if edge < list(reversed(edge)):
             return edge
         else:
             return list(reversed(edge))
 
     def get_edges(tile: list[list[bool]]) -> list[list[bool]]:
-        # Get the top, right, bottom, and left edges of a tile, as an ordered list.
+        """Get the top, right, bottom, and left edges of a tile, as an ordered list."""
         return [norm_edge(edge) for edge in [
             tile[0],
             [row[-1] for row in tile],
@@ -59,11 +64,127 @@ def part1(input: Input) -> int:
     # If this didn't hold for the input, we'd have to search the possible arrangements of tiles to find the one that allows
     # a complete arrangement.
     assert len(corner_tiles) == 4
-    return math.prod(corner_tiles)
+
+    tile_0_rotation = {
+        (True, False, False, True): 0,
+        (False, False, True, True): 1,
+        (False, True, True, False): 2,
+        (True, True, False, False): 3,
+    }[tuple([edge in unique_edges for edge in tile_edges[corner_tiles[0]]])]
+
+    return corner_tiles, tile_0_rotation
+
+
+def part1(input: Input) -> int:
+    return math.prod(find_corner_tiles(input)[0])
 
 
 def part2(input: Input) -> int:
-    pass  # TODO
+    def flip_v(tile: list[list[bool]]) -> list[list[bool]]:
+        """Flip top-to-bottom."""
+        return list(reversed(tile))
+
+    def flip_h(tile: list[list[bool]]) -> list[list[bool]]:
+        """Flip left-to-right."""
+        return [list(reversed(row)) for row in tile]
+
+    def transpose(tile: list[list[bool]]) -> list[list[bool]]:
+        return list(map(list, zip(*tile)))
+
+    def rotate(tile: list[list[bool]], times: int) -> list[list[bool]]:
+        """times: number of times to rotate 90 degrees clockwise."""
+        match times:
+            case 0:
+                return tile
+            case 1:
+                return flip_h(transpose(tile))
+            case 2:
+                return flip_v(flip_h(tile))
+            case 3:
+                return flip_v(transpose(tile))
+
+    sea_monster = ["                  # ",
+                   "#    ##    ##    ###",
+                   " #  #  #  #  #  #   "]
+    sea_monster = [[cell == "#" for cell in row] for row in sea_monster]
+
+    corners, tile_0_rotation = find_corner_tiles(input)
+    tiles_across = math.isqrt(len(input))
+
+    # Find the left column of tiles first.
+    matched_tiles = [rotate(input[corners[0]], tile_0_rotation)]
+    remaining_tiles = [tile for tile_id, tile in input.items() if tile_id != corners[0]]
+
+    def find_top_match(edge: list[bool]) -> list[list[bool]] | None:
+        """Find a tile whose top edge matches edge.
+        Returns the match, rotated and flipped as needed, if found in remaining_tiles, and removes
+        it from remaining_tiles.
+        Asserts if no match is found."""
+        for tile in remaining_tiles:
+            top = tile[0]
+            right = [row[-1] for row in tile]
+            bottom = tile[-1]
+            left = [row[0] for row in tile]
+            edge_reversed = list(reversed(edge))
+
+            if top == edge:
+                remaining_tiles.remove(tile)
+                return tile
+            elif top == edge_reversed:
+                remaining_tiles.remove(tile)
+                return flip_h(tile)
+            elif right == edge:
+                remaining_tiles.remove(tile)
+                return rotate(tile, 3)
+            elif right == edge_reversed:
+                remaining_tiles.remove(tile)
+                return rotate(flip_v(tile), 3)
+            elif bottom == edge:
+                remaining_tiles.remove(tile)
+                return flip_v(tile)
+            elif bottom == edge_reversed:
+                remaining_tiles.remove(tile)
+                return rotate(tile, 2)
+            elif left == edge:
+                remaining_tiles.remove(tile)
+                return transpose(tile)
+            elif left == edge_reversed:
+                remaining_tiles.remove(tile)
+                return rotate(tile, 1)
+        assert False
+
+    for _ in range(tiles_across - 1):
+        matched_tiles.append(find_top_match(matched_tiles[-1][-1]))
+
+    matched_tiles = [[tile] for tile in matched_tiles]
+    for row in matched_tiles:
+        for _ in range(tiles_across - 1):
+            row.append(transpose(find_top_match([r[-1] for r in row[-1]])))
+
+    assert len(remaining_tiles) == 0
+
+    # Assemble the tiles.
+    all_tiles = [[elem for tilecol in row for elem in tilecol[1:-1]] for tilerow in [list(map(list, zip(*tilerow))) for tilerow in matched_tiles] for row in tilerow[1:-1]]
+    # Copy of all_tiles, from which we'll remove sea monster tiles. This allows us to account for potentially overlapping monsters.
+    all_rough_seas = [[elem for elem in row] for row in all_tiles]
+
+    for modified_monster in [mm for rm in [rotate(sea_monster, r) for r in range(4)] for mm in [rm, flip_v(rm)]]:
+        # For each possible rotation/flip of the monster, search all possible positions.
+        for dr in range(0, len(all_tiles) - len(modified_monster) + 1):
+            for dc in range(0, len(all_tiles[0]) - len(modified_monster[0]) + 1):
+                def monster_found() -> bool:
+                    for mr, mrow in enumerate(modified_monster):
+                        for mc, mcell in enumerate(mrow):
+                            if mcell and not all_tiles[dr + mr][dc + mc]:
+                                return False
+                    return True
+                if monster_found():
+                    for mr, mrow in enumerate(modified_monster):
+                        for mc, mcell in enumerate(mrow):
+                            if mcell:
+                                all_rough_seas[dr + mr][dc + mc] = False
+
+    return sum([row.count(True) for row in all_rough_seas])
 
 
 if __name__ == "__main__":
